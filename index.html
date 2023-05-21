@@ -373,6 +373,7 @@
             data: newData
         }
         ws.send(JSON.stringify(evt))
+        messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
     }
     const monitoringTick = () => {
         if (position) {
