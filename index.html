@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    <script>
+        const HERE_API_KEY = 'pHNAQsNn5PN590FzuN5KmOUPAn1Uefos0FEma5ICmTg'
+    </script>
+    <title>ESP8266 Distance</title>
+
+    <link rel="stylesheet" type="text/css" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css"/>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"
+            type="text/javascript" charset="utf-8"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"
+            type="text/javascript" charset="utf-8"></script>
+
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-ui.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js"></script>
+
+    <style>
+        body {
+            background-color: beige;
+        }
+
+        #main {
+            box-sizing: border-box;
+            width: 90%;
+            max-width: 500px;
+            /*min-width: 420px;*/
+            text-align: center;
+            margin: auto;
+        }
+
+        #clients {
+            padding: 10px;
+            /*max-height: 200px;*/
+            width: 100%;
+            height: 158px;
+            border: 1px solid black;
+            box-sizing: border-box;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 25px;
+            overflow: auto;
+        }
+
+        #clients > div {
+            font-weight: bold;
+            box-sizing: border-box;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: antiquewhite;
+            border-radius: 10px;
+            width: 100%;
+            text-align: center;
+            transition-duration: 0.5s;
+            transition-timing-function: ease-in-out;
+        }
+
+        #clients > div:last-child {
+            margin-bottom: 0;
+        }
+
+        @media (hover: hover) {
+            #clients > div:hover {
+                background-color: azure !important;
+            }
+        }
+
+        .selected {
+            background-color: azure !important;
+        }
+
+        button {
+            font-weight: bold;
+            padding: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .state {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .state > div > span {
+            width: 30px;
+        }
+
+        .state > div {
+            display: flex;
+        }
+    </style>
+</head>
+<body onload="startUp()">
+<!--<div style="width: 640px; height: 480px" id="map"></div>-->
+
+<div id="main" style="display: flex; align-items: center; flex-direction: column">
+    <span style="font-size: 30px; font-weight: bold; margin-top:20px; text-align: center">Connection Distance Tester</span>
+    <div class="state">
+        <div>GPS:<span id="gps">?</span></div>
+        <div>WS:<span id="webs">?</span></div>
+        <div>Distance Mon:<span id="monitoring">?</span></div>
+    </div>
+    <span style="margin-top: 20px">Users</span>
+    <div id="clients"></div>
+    <div style="height: 40px; width: 100%; display: flex; gap:10px" ;>
+        <input id="input" style="height: 87%; width: 75%" placeholder="Write your message here ...">
+        <button style="height: 100%; flex-grow: 1" onclick="sendButtonOnclick()">send</button>
+    </div>
+    <textarea id="messages" style="height: 250px; width: 100%; margin-top: 20px;" readonly wrap="hard"></textarea>
+    <div style="display: flex; width: 100%; gap: 10px; margin-top: 20px">
+        <button style="padding: 15px 50px; flex:1" onclick="activateLocation()">Activate Location</button>
+        <button style="padding: 15px 50px; flex:1" onclick="deactivateLocation()">Deactivate Location</button>
+    </div>
+    <div style="display: flex; width: 100%; gap: 10px">
+        <button style="padding: 15px 50px; flex:1 " onclick="initializeWs()">Open WS</button>
+        <button style="padding: 15px 50px; flex:1 " onclick="closeWs()">Close WS</button>
+    </div>
+    <div style="display: flex; width: 100%; gap: 10px">
+        <button style="padding: 15px 50px; flex:1 " onclick="startMonitoringDistance()">Start MD</button>
+        <button style="padding: 15px 50px; flex:1 " onclick="stopMonitoringDistance()">Stop MD</button>
+    </div>
+</div>
+
+
+<script>
+    let clientsIp = []
+    let selectedIp = null
+    let selectedItem = null
+    const clientsBox = document.getElementById('clients')
+    const input = document.getElementById('input')
+    const messages = document.getElementById('messages')
+    const gps = document.getElementById('gps')
+    const webs = document.getElementById('webs')
+    const monitoring = document.getElementById('monitoring')
+    let position = null
+    let watchId = null
+    let myIp = null
+    let myName = ''
+    let monitoringFlag = false
+
+    function calcDistanceFromLatLong(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // metres
+        const phi1 = lat1 * Math.PI / 180; // φ, λ in radians
+        const phi2 = lat2 * Math.PI / 180;
+        const delta_phi = (lat2 - lat1) * Math.PI / 180;
+        const delta_lambda = (lon2 - lon1) * Math.PI / 180;
+
+        const a = Math.sin(delta_phi / 2) * Math.sin(delta_phi / 2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(delta_lambda / 2) * Math.sin(delta_lambda / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        const d = R * c; // in metres
+        return d.toFixed(1)
+    }
+
+    function calcDistanceFromCoords(pos1, pos2) {
+        return calcDistanceFromLatLong(pos1.latitude, pos1.longitude, pos2.latitude, pos2.longitude)
+    }
+
+    let locationParams = {
+        enableHighAccuracy: true,
+        // timeout: 5000,
+        maximumAge: 0,
+    }
+    const activateLocation = () => {
+        if (!watchId) {
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition(updatePosition, showError, locationParams);
+                gps.innerHTML = 'on'
+            } else {
+                alert("Geolocation is not supported by this browser.")
+            }
+        } else {
+            alert("Geolocation is already on!")
+        }
+    }
+    const deactivateLocation = () => {
+        if (watchId) {
+            if (navigator.geolocation) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null
+                gps.innerHTML = 'off'
+            } else {
+                alert("Geolocation is not supported by this browser.")
+            }
+        } else {
+            alert('Geolocation is not active!')
+        }
+    }
+
+    const updatePosition = (pos) => {
+        const {accuracy, altitude, altitudeAccuracy, heading, latitude, longitude, speed} = pos.coords
+        position = {accuracy, altitude, altitudeAccuracy, heading, latitude, longitude, speed}
+        console.log(position)
+    }
+
+    function showError(error) {
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                alert("User denied the request for Geolocation.")
+                break;
+            case error.POSITION_UNAVAILABLE:
+                alert("Location information is unavailable.")
+                break;
+            case error.TIMEOUT:
+                alert("The request to get user location timed out.")
+                break;
+            case error.UNKNOWN_ERROR:
+                alert("An unknown error occurred.")
+                break;
+        }
+    }
+
+    let gateway = `ws://${window.location.hostname}:2000/ws`;
+    let ws
+
+    const startUp = () => {
+        activateLocation()
+        initializeWs()
+        stopMonitoringDistance()
+
+        input.addEventListener("keypress", function (event) {
+            // If the user presses the "Enter" key on the keyboard
+            if (event.key === "Enter") {
+                // Cancel the default action, if needed
+                event.preventDefault();
+                // Trigger the button element with a click
+                sendButtonOnclick()
+            }
+        });
+
+    }
+
+    const initializeWs = () => {
+        if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+            ws = new WebSocket(gateway);
+            ws.onopen = function () {
+                // Web Socket is connected, send data using send()
+                // ws.send("Message to send");
+                // alert("Message is sent...");
+                console.log('ws conected!')
+                webs.innerHTML = 'on'
+            };
+            ws.onmessage = function (evt) {
+                let received = evt.data
+                var event = JSON.parse(received);
+                // console.log(event)
+                eventParser[event.event](event.data)
+            };
+
+            ws.onclose = function () {
+                // websocket is closed.
+                console.log("Connection is closed...");
+                webs.innerHTML = 'off'
+            };
+            ws.onerror = function (err) {
+                console.log(err)
+                alert(err)
+            }
+        } else {
+            alert('WebSocket is already established!')
+        }
+    }
+
+    const closeWs = () => {
+        ws.close()
+    }
+
+    const sendButtonOnclick = () => {
+        if (position) {
+            if (selectedIp) {
+                const text = input.value
+                console.log()
+                if (text.length) {
+                    let evt = {
+                        event: 'message',
+                        data: {
+                            to: {
+                                ip: selectedIp
+                            },
+                            text,
+                            from: {
+                                position,
+                                ip: myIp,
+                                name: ''
+                            }
+                        }
+                    }
+                    ws.send(JSON.stringify(evt))
+                    messages.value = `${new Date().toLocaleTimeString()}|me->${text}\n` + messages.value
+                    input.value = ''
+                    input.focus()
+                } else {
+                    alert('message cannot be empty!')
+                }
+            } else {
+                alert('select destination user first!')
+            }
+        } else {
+            alert('you should activate geolocation first!')
+
+        }
+    }
+
+    const eventParser = {
+        clientsIp: (arr) => {
+            clientsIp = arr
+            console.log(clientsIp)
+            clientsBox.innerHTML = ""
+            clientsIp.forEach(el => {
+                let div = document.createElement("div")
+                // div.style = 'font-weight:bold'
+                div.innerHTML = `${el.toString()}`
+                if (selectedIp === el) {
+                    div.classList.add('selected')
+                    selectedItem = div
+                }
+                div.onclick = (e) => {
+                    console.log('click')
+                    // console.log(e)
+                    if (selectedIp !== el) {
+                        selectedItem?.classList.remove('selected')
+                        selectedItem = e.target
+                        selectedIp = el
+                        selectedItem.classList.add('selected')
+                        input.focus()
+
+                    } else {
+                        selectedIp = null
+                        selectedItem.classList.remove('selected')
+                        selectedItem = null
+                    }
+                }
+                clientsBox.appendChild(div)
+            })
+        },
+        message: (data) => {
+            console.log(data, position)
+            messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
+        },
+        getIp: (data) => {
+            myIp = data.ip
+        },
+        distanceCheckRequest: (data) => {
+            sendMonitoringResponse(data)
+        }
+    }
+    const sendMonitoringResponse = (data) => {
+        data.to = position
+        let newData = {
+            to:data.from,
+            from:data.to,
+            text:data.text
+        }
+        let evt = {
+            event: 'distanceCheckResponse',
+            data: newData
+        }
+        ws.send(JSON.stringify(evt))
+    }
+    const monitoringTick = () => {
+        if (position) {
+            if (selectedIp) {
+                let evt = {
+                    event: 'distanceCheckRequest',
+                    data: {
+                        to: {
+                            ip: selectedIp
+                        },
+                        text: 'Distance monitoring ... ',
+                        from: {
+                            position,
+                            ip: myIp,
+                            name: myName
+                        }
+                    }
+                }
+                ws.send(JSON.stringify(evt))
+                // messages.value = `${new Date().toLocaleTimeString()}|me->${text}\n` + messages.value
+            } else {
+                stopMonitoringDistance()
+                alert('select destination user first!')
+            }
+        } else {
+            stopMonitoringDistance()
+            alert('you should activate geolocation first!')
+
+        }
+
+        if (monitoringFlag) {
+            setTimeout(monitoringTick, 1000)
+        }
+    }
+    const startMonitoringDistance = () => {
+        monitoringFlag = true;
+        monitoring.innerText = 'on'
+        monitoringTick()
+    }
+
+    const stopMonitoringDistance = () => {
+        monitoringFlag = false;
+        monitoring.innerText = 'off'
+    }
+
+</script>
+</body>
+</html>
