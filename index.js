@@ -61,7 +61,7 @@ wss.on('connection', function connection(ws, req) {
     clients[clientIp] = ws
     console.log('connected: ' + clientIp)
 
-    ws.send(JSON.stringify({event:'getIp', data:{ip:clientIp}}))
+    ws.send(JSON.stringify({event: 'getIp', data: {ip: clientIp}}))
     notifyClientsUpdateClientsIps()
 
 
@@ -70,24 +70,20 @@ wss.on('connection', function connection(ws, req) {
         console.log('received from ' + clientIp + ': ' + data)
         let messageObj = JSON.parse(data)
 
-        switch (messageObj.event){
-            case 'message':{
-                sendWebsocketMessageFromTo(messageObj.data.to.ip, messageObj)
-
-
-                break;
+        switch (messageObj.event) {
+            case 'message': {
+                sendWebsocketMessageFromTo(messageObj.data.to.ip, messageObj);
+                break
             }
             case 'distanceCheckRequest': {
-                let destination = messageObj.data.to.ip
-                let toUserWebSocket = clients[destination]
-                if (toUserWebSocket) {
-                    console.log('sent to ' + destination + ': ' + JSON.stringify(messageObj))
-                    // messageObj.data.from = clientIp
-                    toUserWebSocket.send(JSON.stringify(messageObj))
-                }
-                break;
+                sendWebsocketMessageFromTo(messageObj.data.to.ip, messageObj)
+                break
             }
 
+            case 'distanceCheckResponse': {
+                sendWebsocketMessageFromTo(messageObj.data.to.ip, messageObj)
+                break
+            }
         }
     });
 

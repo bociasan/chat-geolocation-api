@@ -343,7 +343,7 @@
             })
         },
         message: (data) => {
-            console.log(data, position)
+            // console.log(data, position)
             messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
         },
         getIp: (data) => {
@@ -351,10 +351,18 @@
         },
         distanceCheckRequest: (data) => {
             sendMonitoringResponse(data)
+        },
+        distanceCheckResponse: (data) => {
+            parseMonitoringResponse(data)
         }
     }
+    const parseMonitoringResponse = (data) => {
+        console.log(data)
+        messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
+
+    }
     const sendMonitoringResponse = (data) => {
-        data.to = position
+        data.to.position = position
         let newData = {
             to:data.from,
             from:data.to,
@@ -375,7 +383,7 @@
                         to: {
                             ip: selectedIp
                         },
-                        text: 'Distance monitoring ... ',
+                        text: '~Mon~',
                         from: {
                             position,
                             ip: myIp,
