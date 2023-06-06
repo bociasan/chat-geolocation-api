@@ -130,6 +130,7 @@
     let position = null
     let watchId = null
     let myIp = null
+    let topDistance = 0
     let myName = ''
     let monitoringFlag = false
 
@@ -298,6 +299,10 @@
         }
     }
 
+    const updateMessagesValueFromData = (data) => {
+        messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
+    }
+
     const eventParser = {
         clientsIp: (arr) => {
             clientsIp = arr
@@ -305,8 +310,9 @@
             clientsBox.innerHTML = ""
             clientsIp.forEach(el => {
                 let div = document.createElement("div")
-                // div.style = 'font-weight:bold'
-                div.innerHTML = `${el.toString()}`
+                div.style = 'position:relative;';
+                div.innerHTML = `<span>${el.toString()}</span>` //<span style="position: absolute;right: 0"> MaxDist: 0m</span>
+
                 if (selectedIp === el) {
                     div.classList.add('selected')
                     selectedItem = div
@@ -332,7 +338,7 @@
         },
         message: (data) => {
             // console.log(data, position)
-            messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
+            updateMessagesValueFromData(data)
         },
         getIp: (data) => {
             myIp = data.ip
@@ -342,12 +348,21 @@
         },
         distanceCheckResponse: (data) => {
             parseMonitoringResponse(data)
+            if (monitoringFlag){
+                let distance = calcDistanceFromCoords(data.from.position, position)
+                if (distance > topDistance ){
+                    topDistance = distance
+                    monitoring.innerText = topDistance.toString() + 'm'
+                }
+            }
         }
     }
+
+
+
     const parseMonitoringResponse = (data) => {
         console.log(data)
-        messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
-
+        updateMessagesValueFromData(data)
     }
     const sendMonitoringResponse = (data) => {
         data.to.position = position
@@ -399,11 +414,13 @@
     const startMonitoringDistance = () => {
         monitoringFlag = true;
         monitoring.innerText = 'on'
+        // monitoring.innerText = topDistance.toString() + 'm'
         monitoringTick()
     }
 
     const stopMonitoringDistance = () => {
         monitoringFlag = false;
+        topDistance = 0
         monitoring.innerText = 'off'
     }
 
