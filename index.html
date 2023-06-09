@@ -85,16 +85,37 @@
         .state > div {
             display: flex;
         }
+        .gps-cell{
+            min-width: 150px;
+        }
     </style>
 </head>
 <body onload="startUp()">
 <div id="main" style="display: flex; align-items: center; flex-direction: column">
     <span style="font-size: 30px; font-weight: bold; margin-top:20px; text-align: center">Connection Distance Tester</span>
     <div class="state">
-        <div>GPS:<span id="gps">?</span></div>
+        <span>GPS:<span id="gps">?</span></span>
         <div>WS:<span id="webs">?</span></div>
-        <div>Distance Mon:<span id="monitoring">?</span></div>
+        <span>Distance Mon:<span id="monitoring">?</span></span>
     </div>
+
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-around; margin-top: 15px">
+        <div class="gps-cell">
+            <div id="my-lat"></div>
+            <div id="my-lng"></div>
+            <div id="my-acc"></div>
+        </div >
+        <div class="gps-cell">
+            <div id="his-lat"></div>
+            <div id="his-lng"></div>
+            <div id="his-acc"></div>
+        </div>
+        <div class="gps-cell">
+            <div id="current-distance"></div>
+            <b><div id="max-distance"></div></b>
+        </div>
+    </div>
+
     <span style="margin-top: 20px">Users</span>
     <div id="clients"></div>
     <div style="height: 40px; width: 100%; display: flex; gap:10px" ;>
@@ -127,10 +148,21 @@
     const gps = document.getElementById('gps')
     const webs = document.getElementById('webs')
     const monitoring = document.getElementById('monitoring')
+    const myLat = document.getElementById('my-lat')
+    const myLng = document.getElementById('my-lng')
+    const myAcc = document.getElementById('my-acc')
+    const hisLat = document.getElementById('his-lat')
+    const hisLng = document.getElementById('his-lng')
+    const hisAcc = document.getElementById('his-acc')
+    const currentDistance = document.getElementById('current-distance')
+    const maxDistance = document.getElementById('max-distance')
     let position = null
     let watchId = null
     let myIp = null
-    let topDistance = 0
+    let topDistance = {
+        distance: 0,
+        accuracy: 0
+    }
     let myName = ''
     let monitoringFlag = false
 
@@ -176,7 +208,11 @@
             if (navigator.geolocation) {
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null
+                position = null
                 gps.innerHTML = 'off'
+                myLat.innerHTML = ''
+                myLng.innerHTML = ''
+                myAcc.innerHTML = ''
             } else {
                 alert("Geolocation is not supported by this browser.")
             }
@@ -189,6 +225,9 @@
         const {accuracy, altitude, altitudeAccuracy, heading, latitude, longitude, speed} = pos.coords
         position = {accuracy, altitude, altitudeAccuracy, heading, latitude, longitude, speed}
         console.log(position)
+        myLat.innerHTML = `MyLatitude: ${position.latitude}`
+        myLng.innerHTML = `MyLongitude: ${position.longitude}`
+        myAcc.innerHTML = `MyAccuracy: ±${position.accuracy.toFixed(1)}m`
     }
 
     function showError(error) {
@@ -300,7 +339,14 @@
     }
 
     const updateMessagesValueFromData = (data) => {
-        messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
+        let curr = calcDistanceFromCoords(data.from.position, position)
+        messages.value = `${new Date().toLocaleTimeString()}|${curr}m|${data.from.ip}->${data.text}\n` + messages.value
+        if (monitoringFlag){
+            hisLat.innerHTML = `HisLatitude: ${data.from.position.latitude}`
+            hisLng.innerHTML = `HisLongitude: ${data.from.position.longitude}`
+            hisAcc.innerHTML = `HisAccuracy: ±${data.from.position.accuracy.toFixed(1)}m`
+            currentDistance.innerHTML = `CurrentDistance: ${curr}m (±${(data.from.position.accuracy+position.accuracy).toFixed(1)}m)`
+        }
     }
 
     const eventParser = {
@@ -348,16 +394,20 @@
         },
         distanceCheckResponse: (data) => {
             parseMonitoringResponse(data)
-            if (monitoringFlag){
+            if (monitoringFlag) {
                 let distance = calcDistanceFromCoords(data.from.position, position)
-                if (distance > topDistance ){
-                    topDistance = distance
-                    monitoring.innerText = topDistance.toString() + 'm'
+                let accuracy = data.from.position.accuracy + position.accuracy
+                // if (distance > topDistance.distance) {
+                // if ((topDistance.distance == 0&&topDistance.accuracy == 0)||distance-accuracy > topDistance.distance-topDistance.accuracy) {
+                if (distance-accuracy > topDistance.distance-topDistance.accuracy) {
+                    topDistance.distance = distance
+                    topDistance.accuracy = accuracy
+                    // monitoring.innerText = `${topDistance} m (±${(data.from.position.accuracy+position.accuracy).toFixed(1)}m)`
+                    maxDistance.innerHTML = `MaxDistance: ${topDistance.distance} m (±${topDistance.accuracy.toFixed(1)}m)`
                 }
             }
         }
     }
-
 
 
     const parseMonitoringResponse = (data) => {
@@ -367,9 +417,9 @@
     const sendMonitoringResponse = (data) => {
         data.to.position = position
         let newData = {
-            to:data.from,
-            from:data.to,
-            text:data.text
+            to: data.from,
+            from: data.to,
+            text: data.text
         }
         let evt = {
             event: 'distanceCheckResponse',
@@ -379,6 +429,8 @@
         messages.value = `${new Date().toLocaleTimeString()}|${calcDistanceFromCoords(data.from.position, position)}m|${data.from.ip}->${data.text}\n` + messages.value
     }
     const monitoringTick = () => {
+        if (!monitoringFlag) return
+
         if (position) {
             if (selectedIp) {
                 let evt = {
@@ -404,7 +456,6 @@
         } else {
             stopMonitoringDistance()
             alert('you should activate geolocation first!')
-
         }
 
         if (monitoringFlag) {
@@ -414,14 +465,24 @@
     const startMonitoringDistance = () => {
         monitoringFlag = true;
         monitoring.innerText = 'on'
-        // monitoring.innerText = topDistance.toString() + 'm'
+        hisLat.innerHTML = `HisLatitude: ?`
+        hisLng.innerHTML = `HisLongitude: ?`
+        hisAcc.innerHTML = `HisAccuracy: ?m`
         monitoringTick()
     }
 
     const stopMonitoringDistance = () => {
         monitoringFlag = false;
-        topDistance = 0
+        topDistance = {
+            distance: 0,
+            accuracy: 0
+        }
         monitoring.innerText = 'off'
+        hisLng.innerHTML = ''
+        hisLat.innerHTML = ''
+        hisAcc.innerHTML = ''
+        currentDistance.innerHTML = ''
+        maxDistance.innerHTML = ''
     }
 
 </script>
