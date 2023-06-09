@@ -48,7 +48,7 @@ const notifyClientsUpdateClientsIps = () => {
 const sendWebsocketMessageFromTo = (destination, obj) => {
     let toUserWebSocket = clients[destination]
     if (toUserWebSocket) {
-        console.log('sent to ' + destination + ': ' + JSON.stringify(obj))
+        // console.log('sent to ' + destination + ': ' + JSON.stringify(obj)) //sent to
         // messageObj.data.from = clientIp
         toUserWebSocket.send(JSON.stringify(obj))
     }
@@ -67,7 +67,7 @@ wss.on('connection', function connection(ws, req) {
 
     ws.on('error', console.error);
     ws.on('message', function (data) {
-        console.log('received from ' + clientIp + ': ' + data)
+        // console.log('received from ' + clientIp + ': ' + data) //received from
         let messageObj = JSON.parse(data)
 
         switch (messageObj.event) {

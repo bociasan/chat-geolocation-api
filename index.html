@@ -85,7 +85,8 @@
         .state > div {
             display: flex;
         }
-        .gps-cell{
+
+        .gps-cell {
             min-width: 150px;
         }
     </style>
@@ -104,7 +105,7 @@
             <div id="my-lat"></div>
             <div id="my-lng"></div>
             <div id="my-acc"></div>
-        </div >
+        </div>
         <div class="gps-cell">
             <div id="his-lat"></div>
             <div id="his-lng"></div>
@@ -112,7 +113,9 @@
         </div>
         <div class="gps-cell">
             <div id="current-distance"></div>
-            <b><div id="max-distance"></div></b>
+            <b>
+                <div id="max-distance"></div>
+            </b>
         </div>
     </div>
 
@@ -122,7 +125,10 @@
         <input id="input" style="height: 87%; width: 75%" placeholder="Write your message here ...">
         <button style="height: 100%; flex-grow: 1" onclick="sendButtonOnclick()">send</button>
     </div>
-    <textarea id="messages" style="height: 250px; width: 100%; margin-top: 20px;" readonly wrap="hard"></textarea>
+    <div style="height: 250px; width: 100%; margin-top: 20px; position: relative" >
+        <textarea style="width: inherit; height: inherit" id="messages" readonly wrap="hard"></textarea>
+        <button style="position: absolute; right: 10px; bottom: 10px" onclick="messages.value = ''">Clear</button>
+    </div>
     <div style="display: flex; width: 100%; gap: 10px; margin-top: 20px">
         <button style="padding: 15px 50px; flex:1" onclick="activateLocation()">Activate Location</button>
         <button style="padding: 15px 50px; flex:1" onclick="deactivateLocation()">Deactivate Location</button>
@@ -188,7 +194,7 @@
 
     let locationParams = {
         enableHighAccuracy: true,
-        // timeout: 5000,
+        timeout: 5000,
         maximumAge: 0,
     }
     const activateLocation = () => {
@@ -341,11 +347,11 @@
     const updateMessagesValueFromData = (data) => {
         let curr = calcDistanceFromCoords(data.from.position, position)
         messages.value = `${new Date().toLocaleTimeString()}|${curr}m|${data.from.ip}->${data.text}\n` + messages.value
-        if (monitoringFlag){
+        if (monitoringFlag) {
             hisLat.innerHTML = `HisLatitude: ${data.from.position.latitude}`
             hisLng.innerHTML = `HisLongitude: ${data.from.position.longitude}`
             hisAcc.innerHTML = `HisAccuracy: ±${data.from.position.accuracy.toFixed(1)}m`
-            currentDistance.innerHTML = `CurrentDistance: ${curr}m (±${(data.from.position.accuracy+position.accuracy).toFixed(1)}m)`
+            currentDistance.innerHTML = `CurrentDistance: ${curr}m (±${(data.from.position.accuracy + position.accuracy).toFixed(1)}m)`
         }
     }
 
@@ -399,7 +405,7 @@
                 let accuracy = data.from.position.accuracy + position.accuracy
                 // if (distance > topDistance.distance) {
                 // if ((topDistance.distance == 0&&topDistance.accuracy == 0)||distance-accuracy > topDistance.distance-topDistance.accuracy) {
-                if (distance-accuracy > topDistance.distance-topDistance.accuracy) {
+                if (distance - accuracy > topDistance.distance - topDistance.accuracy) {
                     topDistance.distance = distance
                     topDistance.accuracy = accuracy
                     // monitoring.innerText = `${topDistance} m (±${(data.from.position.accuracy+position.accuracy).toFixed(1)}m)`
