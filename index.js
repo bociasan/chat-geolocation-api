@@ -1,5 +1,6 @@
 import {WebSocketServer} from 'ws';
 import express from 'express';
+import os from 'os'
 
 const app = express();
 const port = 3000
@@ -100,5 +101,9 @@ app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 })
 
-import os from 'os'
-console.log(os.networkInterfaces());
+
+let networkInterfaces = os.networkInterfaces()
+let res = Object.keys(networkInterfaces).map(interf =>
+    networkInterfaces[interf].map(el => el.family=='IPv4' ? `${interf} -> ${el.address}` : '')
+).flat().filter(el => el)
+console.log(res);
