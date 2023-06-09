@@ -106,4 +106,4 @@ let networkInterfaces = os.networkInterfaces()
 let res = Object.keys(networkInterfaces).map(interf =>
     networkInterfaces[interf].map(el => el.family=='IPv4' ? `${interf} -> ${el.address}` : '')
 ).flat().filter(el => el)
-console.log(res);
+console.log("Possible server IPs: ",res);
