@@ -239,16 +239,21 @@
     function showError(error) {
         switch (error.code) {
             case error.PERMISSION_DENIED:
-                alert("User denied the request for Geolocation.")
+                // alert("User denied the request for Geolocation.")
+                messages.value = `User denied the request for Geolocation.\n` + messages.value
+
                 break;
             case error.POSITION_UNAVAILABLE:
-                alert("Location information is unavailable.")
+                // alert("Location information is unavailable.")
+                messages.value = `Location information is unavailable.\n` + messages.value
                 break;
             case error.TIMEOUT:
-                alert("The request to get user location timed out.")
+                // alert("The request to get user location timed out.")
+                messages.value = `The request to get user location timed out.\n` + messages.value
                 break;
             case error.UNKNOWN_ERROR:
-                alert("An unknown error occurred.")
+                // alert("An unknown error occurred.")
+                messages.value = `An unknown error occurred while getting position.\n` + messages.value
                 break;
         }
     }
